@@ -10,7 +10,7 @@ let isAdminLoggedIn = false;
 // Supabase Configuration
 const SUPABASE_URL = 'https://jhfuahzqufddcybhbuda.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoZnVhaHpxdWZkZGN5YmhidWRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjQ4MjEsImV4cCI6MjA5Mjk0MDgyMX0.WIBLeDuA6vzHwCALJ1FkL5dDkA3jWlTkDOrLJa-MmGE';
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // State
 let currentParsedSession = null;
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Fetch from Supabase
 async function fetchSessions() {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('poker_sessions')
     .select('*')
     .order('date', { ascending: false });
@@ -251,7 +251,7 @@ async function handleSaveSession() {
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving to Cloud...';
 
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from('poker_sessions')
     .insert([{
       date: currentParsedSession.date,
@@ -400,7 +400,7 @@ function renderAdmin() {
       const id = parseInt(e.target.getAttribute('data-id'));
       const newDateStr = e.target.value;
       if (newDateStr) {
-        const { error } = await supabase
+        const { error } = await supabaseClient
           .from('poker_sessions')
           .update({ date: new Date(newDateStr).toISOString() })
           .eq('id', id);
@@ -415,7 +415,7 @@ function renderAdmin() {
     btn.addEventListener('click', async (e) => {
       const id = parseInt(e.target.getAttribute('data-id'));
       if (confirm("Delete this session from the cloud?")) {
-        const { error } = await supabase.from('poker_sessions').delete().eq('id', id);
+        const { error } = await supabaseClient.from('poker_sessions').delete().eq('id', id);
         if (error) alert("Error deleting: " + error.message);
         else fetchSessions();
       }
@@ -432,7 +432,7 @@ function renderAdmin() {
         rawInput.value = textToLoad;
 
         document.querySelector('[data-tab="new-session"]').click();
-        await supabase.from('poker_sessions').delete().eq('id', id);
+        await supabaseClient.from('poker_sessions').delete().eq('id', id);
         alert("Session loaded into parser! It has been removed from the cloud temporarily. Save it again to re-upload.");
         fetchSessions();
       }
