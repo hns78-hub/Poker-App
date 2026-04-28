@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poker Ledger | Premium Session Tracker</title>
+    <meta name="description" content="A professional-grade poker session ledger with advanced analytics, interactive cumulative graphs, and group leaderboards.">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Poker Ledger | Performance Analytics">
+    <meta property="og:description" content="Track your poker sessions with premium glassmorphism UI and deep data insights.">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1541278107931-e006523116d9?q=80&w=1200&h=630&fit=crop">
+    <meta property="og:url" content="https://poker-ledger.vercel.app">
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♠️</text></svg>">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+        <!-- Mobile Header -->
+        <header class="mobile-header">
+            <div class="brand">
+                <div class="brand-logo">♠️</div>
+                <h1>Poker Ledger</h1>
+            </div>
+            <button id="mobile-menu-toggle" class="btn-icon">
+                <i data-lucide="menu"></i>
+            </button>
+        </header>
+
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <div class="brand-logo" id="logo">♠️</div>
+                <h1>Poker Ledger</h1>
+            </div>
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="new-session">
+                    <i data-lucide="plus-circle"></i>
+                    <span>New Session</span>
+                </button>
+                <button class="nav-item" data-tab="history">
+                    <i data-lucide="history"></i>
+                    <span>History</span>
+                </button>
+                <button class="nav-item" data-tab="leaderboard">
+                    <i data-lucide="trophy"></i>
+                    <span>Leaderboard</span>
+                </button>
+                <button class="nav-item" data-tab="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </button>
+                <div class="nav-spacer"></div>
+                <!-- Admin Login Button -->
+                <button class="nav-item" id="btn-admin-login">
+                    <i data-lucide="lock"></i>
+                    <span>Admin Login</span>
+                </button>
+                <button class="nav-item hidden" id="nav-admin" data-tab="admin-dashboard"
+                    style="color: var(--color-danger)">
+                    <i data-lucide="shield-check"></i>
+                    <span>Admin Panel</span>
+                </button>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <!-- NEW SESSION TAB -->
+            <section id="new-session" class="tab-content active">
+                <header class="tab-header">
+                    <h2>Log New Session</h2>
+                    <p>Paste the raw session results below to analyze and correctly log the night.</p>
+                </header>
+
+                <div class="glass-panel">
+                    <div class="input-group">
+                        <label for="host-input">Session Host:</label>
+                        <input type="text" id="host-input" class="text-input" placeholder="e.g. Amish">
+                    </div>
+                    <div class="input-group">
+                        <label for="raw-session-input">Raw Text Input:</label>
+                        <textarea id="raw-session-input" rows="10"
+                            placeholder="Snehal +5 (970)&#10;Anup +3 (6250)&#10;..."></textarea>
+                    </div>
+                    <button id="btn-parse" class="btn btn-primary">Parse Session Results</button>
+                </div>
+
+                <div id="preview-section" class="hidden">
+                    <div class="glass-panel" style="margin-top: 1.5rem;">
+                        <h3>Session Preview Check</h3>
+                        <div id="consistency-check" class="consistency-card" style="margin-bottom: 1rem;"></div>
+                        <div class="table-container">
+                            <table id="preview-table">
+                                <thead>
+                                    <tr>
+                                        <th>Player</th>
+                                        <th class="text-right">Buy-ins</th>
+                                        <th class="text-right">Cost ($)</th>
+                                        <th class="text-right">Ending Chips</th>
+                                        <th class="text-right">Chip Value ($)</th>
+                                        <th class="text-right">Net Return ($)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="preview-tbody"></tbody>
+                            </table>
+                        </div>
+                        <div class="action-row">
+                            <button id="btn-save-session" class="btn btn-success" disabled>Save to Ledger</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SESSION HISTORY TAB -->
+            <section id="history" class="tab-content">
+                <header class="tab-header">
+                    <h2>Session History</h2>
+                    <p>Review the complete ledger of all previous poker nights. Click on a session to view details.</p>
+                </header>
+                <div id="history-container" class="history-grid"></div>
+            </section>
+
+            <!-- LEADERBOARD TAB -->
+            <section id="leaderboard" class="tab-content">
+                <header class="tab-header">
+                    <h2>All-Time Leaderboard</h2>
+                    <p>Aggregated statistics across all saved sessions.</p>
+                </header>
+                <div class="glass-panel">
+                    <div class="table-container">
+                        <table id="leaderboard-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th class="text-right">Games Played</th>
+                                    <th class="text-right">Capital Invested ($)</th>
+                                    <th class="text-right">Total Ending Value ($)</th>
+                                    <th class="text-right">All-Time Net ($)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DASHBOARD TAB -->
+            <section id="dashboard" class="tab-content">
+                <header class="tab-header">
+                    <h2>Insights Dashboard</h2>
+                    <p>Visual breakdown of player performance and game trends.</p>
+                </header>
+                
+                <div class="dashboard-grid">
+                    <div class="glass-panel chart-container">
+                        <h3>Winnings Over Time (Cumulative)</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="winnings-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel chart-container">
+                        <h3>All-Time Net Performance</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="performance-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel chart-container">
+                        <h3>Game Frequency</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="frequency-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ADMIN DASHBOARD -->
+            <section id="admin-dashboard" class="tab-content">
+                <header class="tab-header">
+                    <h2><span style="color:var(--color-danger)">Admin Dashboard</span></h2>
+                    <p>You are logged in. You can edit session dates, reload raw text to edit, or delete sessions.</p>
+                </header>
+                <div class="glass-panel">
+                    <h3>Manage Sessions</h3>
+                    <div class="table-container" style="overflow: visible;">
+                        <table id="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Host</th>
+                                    <th>Players</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="action-row" style="margin-top: 2rem;">
+                        <button id="btn-wipe-data" class="btn btn-danger">Nuclear Option: Wipe All Data</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL OVERLAY FOR SESSION DETAILS -->
+    <div id="session-modal" class="modal-overlay hidden">
+        <div class="modal-content glass-panel" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="modal-title">Session Details</h3>
+                <button id="modal-close" class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="modal-host" style="color: var(--text-secondary); margin-bottom: 1rem;"></p>
+                <div id="modal-consistency" class="consistency-card" style="margin-bottom: 1rem;"></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th class="text-right">Buy-ins</th>
+                                <th class="text-right">Net Return ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL OVERLAY FOR ADMIN LOGIN -->
+    <div id="admin-login-modal" class="modal-overlay hidden">
+        <div class="modal-content glass-panel" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Admin Login</h3>
+                <button id="admin-login-close" class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body input-group">
+                <label>Username</label>
+                <input type="text" id="admin-user" class="text-input" placeholder="admin">
+                <label style="margin-top: 1rem;">Password</label>
+                <input type="password" id="admin-pass" class="text-input" placeholder="admin123">
+                <button id="btn-submit-login" class="btn btn-primary"
+                    style="margin-top: 1.5rem; width: 100%;">Login</button>
+                <p id="login-error" class="text-danger hidden" style="margin-top: 1rem; text-align: center;">Invalid
+                    credentials.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
