@@ -7,8 +7,14 @@ const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'Kiaan2424!';
 let isAdminLoggedIn = false;
 
+// Supabase Configuration
+const SUPABASE_URL = 'https://jhfuahzqufddcybhbuda.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoZnVhaHpxdWZkZGN5YmhidWRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjQ4MjEsImV4cCI6MjA5Mjk0MDgyMX0.WIBLeDuA6vzHwCALJ1FkL5dDkA3jWlTkDOrLJa-MmGE';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // State
 let currentParsedSession = null;
+let allSessions = [];
 
 // DOM Elements
 const tabBtns = document.querySelectorAll('.nav-item[data-tab]');
@@ -134,7 +140,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Modal Listeners
   modalClose.addEventListener('click', () => sessionModal.classList.add('hidden'));
+
+  // Initial Data Fetch
+  fetchSessions();
 });
+
+// Fetch from Supabase
+async function fetchSessions() {
+  const { data, error } = await supabase
+    .from('poker_sessions')
+    .select('*')
+    .order('date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching sessions:', error);
+    return;
+  }
+
+  allSessions = data;
+  renderHistory(allSessions);
+  renderLeaderboard(allSessions);
+  if (document.getElementById('dashboard').classList.contains('active')) renderDashboard();
+  if (document.getElementById('admin-dashboard').classList.contains('active')) renderAdmin();
+}
 
 // Parsing Logic
 function handleParse() {
@@ -217,46 +245,66 @@ function renderPreview(session) {
   }
 }
 
-function handleSaveSession() {
+async function handleSaveSession() {
   if (!currentParsedSession) return;
-  const existing = JSON.parse(localStorage.getItem('poker_sessions') || '[]');
-  existing.push(currentParsedSession);
-  localStorage.setItem('poker_sessions', JSON.stringify(existing));
+  
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving to Cloud...';
 
-  currentParsedSession = null; rawInput.value = ''; hostInput.value = ''; previewSection.classList.add('hidden');
-  loadData();
+  const { error } = await supabase
+    .from('poker_sessions')
+    .insert([{
+      date: currentParsedSession.date,
+      host: currentParsedSession.host,
+      raw_input: currentParsedSession.rawInput,
+      players: currentParsedSession.players,
+      summary: currentParsedSession.summary
+    }]);
+
+  if (error) {
+    alert("Error saving to cloud: " + error.message);
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save to Ledger';
+    return;
+  }
+
+  currentParsedSession = null; 
+  rawInput.value = ''; 
+  hostInput.value = ''; 
+  previewSection.classList.add('hidden');
+  saveBtn.textContent = 'Save to Ledger';
+  
+  await fetchSessions();
   document.querySelector('[data-tab="history"]').click();
 }
 
-function loadData() {
-  const sessions = JSON.parse(localStorage.getItem('poker_sessions') || '[]');
-
-  // 1. Render History
+function renderHistory(sessions) {
   historyContainer.innerHTML = '';
   if (sessions.length === 0) {
     historyContainer.innerHTML = '<p style="color: var(--text-secondary)">No sessions recorded yet.</p>';
-  } else {
-    const sorted = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date));
-    sorted.forEach(s => {
-      const d = new Date(s.date);
-      const dateStr = d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      const card = document.createElement('div');
-      card.className = 'session-card';
-      const winnersStr = s.players.filter(p => p.netReturn > 0).sort((a, b) => b.netReturn - a.netReturn).map(p => `${p.name} (+$${p.netReturn.toFixed(2)})`).join(', ');
-      const hostDisplay = s.host && s.host !== 'Unknown' ? ` • Hosted by ${s.host}` : '';
-
-      card.innerHTML = `
-        <div class="session-date">${dateStr}</div>
-        <div class="session-summary">${s.summary.playerCount} Players${hostDisplay} • Pot: $${s.summary.totalInvested.toFixed(2)}</div>
-        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;"><strong>Winners:</strong> <br>${winnersStr || 'None'}</div>
-        ${!s.summary.isZeroSum ? `<div style="font-size: 0.85rem; color: var(--color-danger)">⚠️ Net Deficit: $${s.summary.netDeficit.toFixed(2)}</div>` : ''}
-      `;
-      card.addEventListener('click', () => openSessionModal(s));
-      historyContainer.appendChild(card);
-    });
+    return;
   }
 
-  // 2. Render Leaderboard
+  sessions.forEach(s => {
+    const d = new Date(s.date);
+    const dateStr = d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const card = document.createElement('div');
+    card.className = 'session-card';
+    const winnersStr = s.players.filter(p => p.netReturn > 0).sort((a, b) => b.net - a.net).map(p => `${p.name} (+$${p.netReturn.toFixed(2)})`).join(', ');
+    const hostDisplay = s.host && s.host !== 'Unknown' ? ` • Hosted by ${s.host}` : '';
+
+    card.innerHTML = `
+      <div class="session-date">${dateStr}</div>
+      <div class="session-summary">${s.summary.playerCount} Players${hostDisplay} • Pot: $${s.summary.totalInvested.toFixed(2)}</div>
+      <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;"><strong>Winners:</strong> <br>${winnersStr || 'None'}</div>
+      ${!s.summary.isZeroSum ? `<div style="font-size: 0.85rem; color: var(--color-danger)">⚠️ Net Deficit: $${s.summary.netDeficit.toFixed(2)}</div>` : ''}
+    `;
+    card.addEventListener('click', () => openSessionModal(s));
+    historyContainer.appendChild(card);
+  });
+}
+
+function renderLeaderboard(sessions) {
   const playerStats = {};
   sessions.forEach(s => {
     s.players.forEach(p => {
@@ -323,19 +371,14 @@ function generateRawText(players) {
 }
 
 function renderAdmin() {
-  const sessions = JSON.parse(localStorage.getItem('poker_sessions') || '[]');
   adminTbody.innerHTML = '';
-  if (sessions.length === 0) {
+  if (allSessions.length === 0) {
     adminTbody.innerHTML = '<tr><td colspan="4">No sessions</td></tr>';
     return;
   }
 
-  // Sort descending
-  const sorted = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  sorted.forEach(s => {
+  allSessions.forEach(s => {
     const tr = document.createElement('tr');
-    // For local datetime input, format correctly
     const d = new Date(s.date);
     const localDateTime = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
 
@@ -353,55 +396,53 @@ function renderAdmin() {
 
   // Handle Date changes
   document.querySelectorAll('.dt-input').forEach(input => {
-    input.addEventListener('change', (e) => {
+    input.addEventListener('change', async (e) => {
       const id = parseInt(e.target.getAttribute('data-id'));
-      const newDateStr = e.target.value; // YYYY-MM-DDTHH:mm
+      const newDateStr = e.target.value;
       if (newDateStr) {
-        const sessionIndex = sessions.findIndex(x => x.id === id);
-        if (sessionIndex > -1) {
-          // Convert local datetime string back to UTC ISO string
-          sessions[sessionIndex].date = new Date(newDateStr).toISOString();
-          localStorage.setItem('poker_sessions', JSON.stringify(sessions));
-          loadData();
-        }
+        const { error } = await supabase
+          .from('poker_sessions')
+          .update({ date: new Date(newDateStr).toISOString() })
+          .eq('id', id);
+        
+        if (error) alert("Error updating date: " + error.message);
+        else fetchSessions();
       }
     });
   });
 
   document.querySelectorAll('.btn-del').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       const id = parseInt(e.target.getAttribute('data-id'));
-      if (confirm("Delete this session?")) {
-        const filtered = sessions.filter(x => x.id !== id);
-        localStorage.setItem('poker_sessions', JSON.stringify(filtered));
-        loadData(); renderAdmin();
+      if (confirm("Delete this session from the cloud?")) {
+        const { error } = await supabase.from('poker_sessions').delete().eq('id', id);
+        if (error) alert("Error deleting: " + error.message);
+        else fetchSessions();
       }
     });
   });
 
   document.querySelectorAll('.btn-edit').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       const id = parseInt(e.target.getAttribute('data-id'));
-      const session = sessions.find(x => x.id === id);
+      const session = allSessions.find(x => x.id === id);
       if (session) {
-        const textToLoad = session.rawInput || generateRawText(session.players);
+        const textToLoad = session.raw_input || generateRawText(session.players);
         hostInput.value = session.host && session.host !== 'Unknown' ? session.host : '';
         rawInput.value = textToLoad;
 
         document.querySelector('[data-tab="new-session"]').click();
-        const filtered = sessions.filter(x => x.id !== id);
-        localStorage.setItem('poker_sessions', JSON.stringify(filtered));
-        alert("Session loaded into parser! Make your changes and hit 'Save to Ledger' to re-upload it.");
+        await supabase.from('poker_sessions').delete().eq('id', id);
+        alert("Session loaded into parser! It has been removed from the cloud temporarily. Save it again to re-upload.");
+        fetchSessions();
       }
     });
   });
 }
 
 function renderDashboard() {
-  const sessions = JSON.parse(localStorage.getItem('poker_sessions') || '[]');
-  if (sessions.length === 0) return;
-
-  const sortedSessions = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (allSessions.length === 0) return;
+  const sortedSessions = [...allSessions].sort((a, b) => new Date(a.date) - new Date(b.date));
   
   // 1. Process Cumulative Data
   const players = {};
