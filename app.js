@@ -59,7 +59,7 @@ const chartColors = [
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  loadData();
+  fetchSessions();
 
   // Tab Switching
   tabBtns.forEach(btn => {
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
   btnWipeData.addEventListener('click', () => {
     if (confirm("Are you SURE you want to wipe all session data? This cannot be undone.")) {
       localStorage.removeItem('poker_sessions');
-      loadData();
+      fetchSessions();
       renderAdmin();
       alert("All data wiped.");
     }
@@ -141,8 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Modal Listeners
   modalClose.addEventListener('click', () => sessionModal.classList.add('hidden'));
 
-  // Initial Data Fetch
-  fetchSessions();
 });
 
 // Fetch from Supabase
